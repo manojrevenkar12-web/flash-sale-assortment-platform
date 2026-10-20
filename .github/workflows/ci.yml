@@ -108,7 +108,11 @@ jobs:
       - name: Smoke-test the image (whole pipeline on a small world, then the API)
         run: |
           docker volume create fsapdata
-          docker run --rm -v fsapdata:/data -e FSAP_SIM_DAYS=500 fsap:local bash scripts/run_pipeline.sh > pipeline.log 2>&1 || { tail -60 pipeline.log; exit 1; }
+          docker run --rm -v fsapdata:/data -e FSAP_SIM_DAYS=500 fsap:local bash scripts/run_pipeline.sh > pipeline.log 2>&1 || {
+            tail -60 pipeline.log
+            echo "::error title=pipeline in container failed::$(grep -E '^== |Error|error|denied|Traceback' pipeline.log | tail -25 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+            exit 1
+          }
           docker run -d --name api -p 8000:8000 -v fsapdata:/data fsap:runtime
           for i in $(seq 1 30); do curl -sf localhost:8000/ready && break; sleep 2; done
           curl -sf localhost:8000/ready
