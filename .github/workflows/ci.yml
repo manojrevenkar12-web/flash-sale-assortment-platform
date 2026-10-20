@@ -1,0 +1,116 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  MLFLOW_DISABLE_AGENT_HINT: "1"
+
+jobs:
+  quality:
+    name: lint and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-dev.txt && pip install --no-deps -e .
+      - run: .github/run.sh ruff check src tests airflow
+      - run: .github/run.sh ruff format --check src tests airflow
+      - run: .github/run.sh python -m pytest -m "not slow and not spark" -W ignore::DeprecationWarning
+
+  pipeline:
+    name: Spark, dbt and end-to-end tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "17"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - run: pip install -r requirements-dev.txt && pip install --no-deps -e .
+      - name: All tests, including Spark contract parity and the end-to-end pipeline
+        run: .github/run.sh python -m pytest -W ignore::DeprecationWarning
+      - name: dbt build (models, contracts and tests) on a fresh world
+        run: |
+          python -m fsap.cli --data ci-data simulate --days 500 --plan-weeks 2 > /dev/null
+          python -m fsap.cli --data ci-data ingest
+          cd dbt && FSAP_DATA_ROOT=$GITHUB_WORKSPACE/ci-data ../.github/run.sh dbt build --profiles-dir . --target local
+
+  airflow:
+    name: Airflow DAG (integrity and full run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "17"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ env.PYTHON_VERSION }}", cache: pip}
+      - name: Project environment
+        run: |
+          python -m venv /tmp/fsap && /tmp/fsap/bin/pip install -q -r requirements.txt && /tmp/fsap/bin/pip install -q --no-deps -e .
+      - name: Airflow environment (separate, as on a real scheduler)
+        run: |
+          python -m venv /tmp/af
+          /tmp/af/bin/pip install -q "apache-airflow==3.3.2" apache-airflow-providers-databricks apache-airflow-providers-cncf-kubernetes pytest==9.1.1 \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.3.2/constraints-${PYTHON_VERSION}.txt"
+      - name: DAG integrity tests
+        env: {AIRFLOW_HOME: /tmp/airflow, AIRFLOW__CORE__LOAD_EXAMPLES: "False"}
+        run: .github/run.sh /tmp/af/bin/python -m pytest -p no:cacheprovider airflow/tests
+      - name: Run the whole DAG once (airflow dags test)
+        env:
+          AIRFLOW_HOME: /tmp/airflow
+          AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+          AIRFLOW__CORE__DAGS_FOLDER: ${{ github.workspace }}/airflow/dags
+          FSAP_RUNTIME: local
+          FSAP_PYTHON: /tmp/fsap/bin/python
+          FSAP_DATA_ROOT: ${{ github.workspace }}/dag-data
+        run: |
+          /tmp/fsap/bin/python -m fsap.cli --data "$FSAP_DATA_ROOT" simulate --days 500 --plan-weeks 2 > /dev/null
+          /tmp/af/bin/airflow db migrate > /dev/null
+          /tmp/af/bin/airflow dags test flash_sale_assortment > dag.log 2>&1 || true
+          grep -oE "new_state=[a-z_]+" dag.log | sort | uniq -c
+          test "$(grep -c 'new_state=success' dag.log)" -ge 8 || { tail -80 dag.log; echo "::error title=DAG run failed::$(grep -E 'Error|exit code' dag.log | tail -5 | tr '\n' ' ')"; exit 1; }
+
+  deploy:
+    name: images and infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: {terraform_version: "1.9.8"}
+      - name: Terraform
+        working-directory: deploy/terraform
+        run: |
+          ../../.github/run.sh terraform fmt -check -diff
+          terraform init -backend=false -input=false > /dev/null
+          ../../.github/run.sh terraform validate
+      - name: Kubernetes manifests
+        run: |
+          kubectl kustomize deploy/k8s/overlays/prod > /tmp/k8s.yaml
+          docker run --rm -v /tmp:/m ghcr.io/yannh/kubeconform:v0.6.7 -strict -summary -ignore-missing-schemas /m/k8s.yaml
+      - name: Compose file
+        run: docker compose config --quiet
+      - name: Build images
+        run: |
+          .github/run.sh docker build --progress=plain --target runtime -t fsap:runtime .
+          .github/run.sh docker build --progress=plain --target local -t fsap:local .
+      - name: Smoke-test the image (whole pipeline on a small world, then the API)
+        run: |
+          docker volume create fsapdata
+          docker run --rm -v fsapdata:/data -e FSAP_SIM_DAYS=500 fsap:local bash scripts/run_pipeline.sh > pipeline.log 2>&1 || { tail -60 pipeline.log; exit 1; }
+          docker run -d --name api -p 8000:8000 -v fsapdata:/data fsap:runtime
+          for i in $(seq 1 30); do curl -sf localhost:8000/ready && break; sleep 2; done
+          curl -sf localhost:8000/ready
+          curl -sf "localhost:8000/v1/campaigns?limit=1" | python -c "import json,sys; d=json.load(sys.stdin); assert d['campaigns'][0]['decision_id']"
+          curl -sf localhost:8000/metrics | grep -q fsap_model_info

@@ -1,0 +1,49 @@
+version: 2
+models:
+  - name: fct_offer_performance
+    description: Commercial outcome per article per campaign.
+    config:
+      contract: {enforced: true}
+    columns:
+      - {name: campaign_id, data_type: varchar, constraints: [{type: not_null}]}
+      - {name: article_id, data_type: varchar, constraints: [{type: not_null}]}
+      - {name: brand_id, data_type: varchar}
+      - {name: category, data_type: varchar}
+      - {name: gender, data_type: varchar}
+      - {name: campaign_kind, data_type: varchar}
+      - {name: start_date, data_type: date}
+      - {name: start_week, data_type: date}
+      - {name: price, data_type: double}
+      - {name: discount, data_type: double}
+      - {name: units_bought, data_type: integer}
+      - {name: units_sold, data_type: integer}
+      - {name: units_returned, data_type: integer}
+      - {name: sold_out, data_type: boolean}
+      - name: sell_through
+        data_type: double
+        tests: [{between: {arguments: {min_value: 0, max_value: 1}}}]
+      - {name: net_revenue, data_type: double}
+      - {name: contribution, data_type: double}
+    tests:
+      - unique_combination:
+          arguments: {columns: [campaign_id, article_id]}
+  - name: mart_campaign_kpis
+    description: One row per campaign; feeds the commercial dashboard.
+    config:
+      contract: {enforced: true}
+    columns:
+      - {name: campaign_id, data_type: varchar, constraints: [{type: not_null}], tests: [unique]}
+      - {name: campaign_kind, data_type: varchar}
+      - {name: start_date, data_type: date}
+      - {name: articles, data_type: bigint}
+      - {name: units_bought, data_type: hugeint}
+      - {name: units_sold, data_type: hugeint}
+      - {name: sell_through, data_type: double, tests: [{between: {arguments: {min_value: 0, max_value: 1}}}]}
+      - {name: sold_out_share, data_type: double}
+      - {name: net_revenue, data_type: double}
+      - {name: contribution, data_type: double}
+      - {name: contribution_margin, data_type: double}
+      - {name: loss_making_share, data_type: double}
+  - name: mart_brand_category_weekly
+    columns:
+      - {name: sell_through, tests: [{between: {arguments: {min_value: 0, max_value: 1}}}]}

@@ -1,0 +1,24 @@
+name: flash_sale_assortment
+version: "1.0.0"
+config-version: 2
+profile: flash_sale_assortment
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  fulfilment_cost_per_unit: 4.5
+  return_handling_cost_per_unit: 3.0
+  salvage_fraction: 0.55
+
+models:
+  flash_sale_assortment:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts

@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fsap-api
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: fsap-api}}
+  strategy: {rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  template:
+    metadata:
+      labels: {app: fsap-api}
+      annotations: {prometheus.io/scrape: "true", prometheus.io/port: "8000"}
+    spec:
+      serviceAccountName: fsap-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: api
+          image: ghcr.io/manojrevenkar12-web/flash-sale-assortment-platform:latest
+          ports: [{name: http, containerPort: 8000}]
+          envFrom:
+            - configMapRef: {name: fsap-config}
+            - secretRef: {name: fsap-api, optional: true}   # FSAP_LLM_* and Databricks token, from External Secrets
+          resources:
+            requests: {cpu: 500m, memory: 1Gi}
+            limits: {memory: 2Gi}
+          startupProbe: {httpGet: {path: /health, port: http}, failureThreshold: 30, periodSeconds: 2}
+          readinessProbe: {httpGet: {path: /ready, port: http}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 20}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: data, mountPath: /data, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: fsap-data}
+        - name: tmp
+          emptyDir: {sizeLimit: 1Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fsap-api
+spec:
+  selector: {app: fsap-api}
+  ports: [{name: http, port: 80, targetPort: http}]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: fsap-api
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app: fsap-api}}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fsap-api
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: fsap-api}
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fsap-data
+spec:
+  accessModes: ["ReadWriteMany"]   # written by the batch pods, read by the API
+  storageClassName: efs
+  resources: {requests: {storage: 50Gi}}

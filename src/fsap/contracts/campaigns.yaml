@@ -1,0 +1,19 @@
+name: campaigns
+version: 1.1.0
+owner: lounge-assortment-data
+description: Campaign headers. Visits are known only after a campaign has ended.
+primary_key: [campaign_id]
+max_quarantine_ratio: 0.01
+fields:
+  - {name: campaign_id, type: string, required: true, pattern: "^C[0-9]{6}$"}
+  - {name: kind, type: string, required: true, enum: [brand, theme]}
+  - {name: theme, type: string, required: true}
+  - {name: brand_id, type: string, required: false, pattern: "^B[0-9]{3}$"}
+  - {name: start_date, type: date, required: true}
+  - {name: end_date, type: date, required: true}
+  - {name: duration_days, type: int, required: true, min: 1, max: 14}
+  - {name: slots, type: int, required: true, min: 1, max: 400}
+  - {name: visits, type: int, required: true, min: 0}
+rules:
+  - {name: ends_after_start, expr: "end_date >= start_date"}
+references: []

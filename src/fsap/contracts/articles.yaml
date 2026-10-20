@@ -1,0 +1,16 @@
+name: articles
+version: 1.0.0
+owner: lounge-catalog
+description: Article master data. Colour and material arrive only inside the supplier title.
+primary_key: [article_id]
+max_quarantine_ratio: 0.01
+fields:
+  - {name: article_id, type: string, required: true, pattern: "^B[0-9]{3}-[0-9]{4}$"}
+  - {name: brand_id, type: string, required: true, pattern: "^B[0-9]{3}$"}
+  - {name: category, type: string, required: true, enum: [sneakers, boots, sandals, jeans, dresses, knitwear, jackets, coats, t-shirts, shirts, swimwear, bags, sportswear, accessories]}
+  - {name: season, type: string, required: true, enum: [SS, AW, ALL]}
+  - {name: gender, type: string, required: true, enum: [women, men, unisex]}
+  - {name: rrp, type: double, required: true, min: 1.0}
+  - {name: supplier_title, type: string, required: true}
+rules: []
+references: []

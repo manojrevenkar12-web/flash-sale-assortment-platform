@@ -1,0 +1,17 @@
+# Business rules for campaign assortment plans. Owned by the buying team; changes are reviewed
+# like code and every plan records the hash of the rules it was made with.
+version: 1.0.0
+economics:
+  fulfilment_cost_per_unit: 4.5        # EUR, pick/pack/ship
+  return_handling_cost_per_unit: 3.0   # EUR
+  salvage_fraction: 0.55               # share of unit cost recovered for unsold or returned units
+budget:
+  share_of_offered_cost: 0.55          # buy budget per campaign as a share of the cost of every lot offered
+depth:
+  levels: [0.25, 0.5, 0.75, 1.0]       # units bought as a share of the brand's lot
+  min_units: 10                        # never list an article with fewer units
+fill:
+  brand_campaign_min_fill: 0.6         # brand campaigns list at least 60% of their slots (partner commitment)
+  theme_campaign_min_fill: 0.5
+mix:
+  theme_max_brand_share: 0.35          # no brand takes more than 35% of a themed campaign's articles

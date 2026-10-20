@@ -1,0 +1,17 @@
+# Local and CI: DuckDB over the silver Parquet files. Production: Databricks SQL warehouse over
+# the same tables in Unity Catalog (credentials from the environment, never committed).
+flash_sale_assortment:
+  target: "{{ env_var('DBT_TARGET', 'local') }}"
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('FSAP_DATA_ROOT', '../data') }}/warehouse.duckdb"
+      threads: 4
+    prod:
+      type: databricks
+      catalog: lounge_assortment
+      schema: analytics
+      host: "{{ env_var('DATABRICKS_HOST', '') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH', '') }}"
+      token: "{{ env_var('DATABRICKS_TOKEN', '') }}"
+      threads: 8

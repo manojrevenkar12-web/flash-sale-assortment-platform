@@ -1,0 +1,14 @@
+name: daily_sales
+version: 1.0.0
+owner: lounge-assortment-data
+description: Units sold per article and campaign day (0 = launch day). Days without sales are omitted.
+primary_key: [campaign_id, article_id, day]
+max_quarantine_ratio: 0.02
+fields:
+  - {name: campaign_id, type: string, required: true, pattern: "^C[0-9]{6}$"}
+  - {name: article_id, type: string, required: true, pattern: "^B[0-9]{3}-[0-9]{4}$"}
+  - {name: day, type: int, required: true, min: 0, max: 13}
+  - {name: units_sold, type: int, required: true, min: 1}
+rules: []
+references:
+  - {column: campaign_id, dataset: campaigns, key: campaign_id}

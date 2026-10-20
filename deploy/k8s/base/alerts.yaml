@@ -1,0 +1,61 @@
+# Generated from ops/prometheus/alerts.yml (a test checks they stay identical).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: flash-sale-assortment
+spec:
+  groups:
+  - name: flash-sale-assortment
+    rules:
+    - alert: FsapDeliveryStale
+      expr: fsap_report_value{report="ingest", name="age_seconds"} > 36 * 3600
+      for: 15m
+      labels:
+        severity: page
+      annotations:
+        summary: No successful ingest for more than 36 hours; plans are built on stale data.
+        runbook: docs/runbooks.md#stale-or-missing-delivery
+    - alert: FsapQuarantineHigh
+      expr: max by (name) (fsap_report_value{report="ingest", name=~"quarantine_ratio:.*"}) > 0.01
+      labels:
+        severity: ticket
+      annotations:
+        summary: '{{ $labels.name }} above 1% of rows quarantined by the data contract.'
+        runbook: docs/runbooks.md#contract-breach-or-high-quarantine
+    - alert: FsapMonitoringChecksBreached
+      expr: sum by (group) (fsap_monitoring_alerts) > 0
+      labels:
+        severity: ticket
+      annotations:
+        summary: '{{ $value }} monitoring checks breached in group {{ $labels.group }}.'
+        runbook: docs/runbooks.md#monitoring-checks
+    - alert: FsapForecastBiased
+      expr: abs(fsap_report_value{report="outcomes", name="forecast_bias"}) > 0.12
+      labels:
+        severity: ticket
+      annotations:
+        summary: Realised demand differs from the forecast by more than 12% on planned campaigns.
+        runbook: docs/runbooks.md#forecast-drift
+    - alert: FsapApiErrors
+      expr: sum(rate(fsap_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(fsap_http_requests_total[5m])), 1e-9) > 0.02
+      for: 10m
+      labels:
+        severity: page
+      annotations:
+        summary: More than 2% of decision API requests fail.
+        runbook: docs/runbooks.md#api-errors
+    - alert: FsapReplanSlow
+      expr: histogram_quantile(0.95, sum by (le) (rate(fsap_plan_solve_seconds_bucket[15m]))) > 10
+      for: 15m
+      labels:
+        severity: ticket
+      annotations:
+        summary: p95 time to re-plan a campaign is above 10 seconds.
+        runbook: docs/runbooks.md#slow-replanning
+    - alert: FsapCopyViolations
+      expr: sum(increase(fsap_copy_violations_total[1h])) > 20
+      labels:
+        severity: ticket
+      annotations:
+        summary: Many campaign texts fail the legal checks; a prompt or template change may be wrong.
+        runbook: docs/runbooks.md#genai-guardrails

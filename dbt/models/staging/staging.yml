@@ -1,0 +1,25 @@
+version: 2
+models:
+  - name: stg_offers
+    description: Contract-checked campaign offers (one row per article live in a campaign).
+    columns:
+      - name: campaign_id
+        tests: [not_null, {relationships: {arguments: {to: ref('stg_campaigns'), field: campaign_id}}}]
+      - name: article_id
+        tests: [not_null, {relationships: {arguments: {to: ref('stg_articles'), field: article_id}}}]
+      - name: discount
+        tests: [{between: {arguments: {min_value: 0, max_value: 0.95}}}]
+  - name: stg_campaigns
+    columns:
+      - name: campaign_id
+        tests: [unique, not_null]
+      - name: kind
+        tests: [{accepted_values: {arguments: {values: ['brand', 'theme']}}}]
+  - name: stg_articles
+    columns:
+      - name: article_id
+        tests: [unique, not_null]
+  - name: stg_daily_sales
+    columns:
+      - name: units_sold
+        tests: [{between: {arguments: {min_value: 1, max_value: 100000}}}]

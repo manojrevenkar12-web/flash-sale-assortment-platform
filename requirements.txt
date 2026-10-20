@@ -1,0 +1,20 @@
+# Runtime and pipeline dependencies (pinned; Python 3.12/3.13)
+numpy==2.5.3
+pandas==2.3.3
+pyarrow==25.0.1
+scipy==1.18.1
+scikit-learn==1.9.1
+lightgbm==4.7.0
+pyspark==4.2.0
+dbt-core==1.12.5
+dbt-duckdb==1.11.0
+duckdb==1.5.6
+mlflow-skinny==3.16.1
+sqlalchemy==2.1.1
+alembic==1.20.0
+fastapi==0.142.2
+uvicorn==0.54.0
+httpx==0.28.1
+prometheus-client==0.26.0
+pydantic==2.13.5
+pyyaml==6.0.3

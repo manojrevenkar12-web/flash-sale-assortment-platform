@@ -1,0 +1,21 @@
+name: candidate_offers
+version: 1.0.0
+owner: lounge-buying
+description: >
+  Offers brands have made for an upcoming campaign. The planner chooses which to take and how
+  many units to buy, up to the lot size.
+primary_key: [campaign_id, article_id]
+max_quarantine_ratio: 0.02
+fields:
+  - {name: campaign_id, type: string, required: true, pattern: "^C[0-9]{6}$"}
+  - {name: article_id, type: string, required: true, pattern: "^B[0-9]{3}-[0-9]{4}$"}
+  - {name: price, type: double, required: true, min: 0.5}
+  - {name: rrp, type: double, required: true, min: 1.0}
+  - {name: discount, type: double, required: true, min: 0.0, max: 0.95}
+  - {name: unit_cost, type: double, required: true, min: 0.0}
+  - {name: lot_units, type: int, required: true, min: 1, max: 5000}
+rules:
+  - {name: price_not_above_rrp, expr: "price <= rrp"}
+  - {name: cost_below_price, expr: "unit_cost < price"}
+references:
+  - {column: article_id, dataset: articles, key: article_id}

@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fsap-api
+spec:
+  podSelector: {matchLabels: {app: fsap-api}}
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress}}}]
+      ports: [{port: 8000}]
+    - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}}]
+      ports: [{port: 8000}]
+  egress:
+    - to: [{namespaceSelector: {}, podSelector: {matchLabels: {k8s-app: kube-dns}}}]
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]
+    - ports: [{port: 443}]   # Databricks model registry, LLM provider, S3/EFS endpoints
+    - ports: [{port: 2049}]  # EFS

@@ -1,0 +1,27 @@
+name: campaign_offers
+version: 1.2.0
+owner: lounge-assortment-data
+description: >
+  One row per article that went live in a campaign, with what was bought and what sold.
+  Delivered weekly by the campaign management system. Sales are capped by units bought, so
+  sold-out rows (sold_out_day >= 0) are censored demand.
+primary_key: [campaign_id, article_id]
+max_quarantine_ratio: 0.02
+fields:
+  - {name: campaign_id, type: string, required: true, pattern: "^C[0-9]{6}$"}
+  - {name: article_id, type: string, required: true, pattern: "^B[0-9]{3}-[0-9]{4}$"}
+  - {name: price, type: double, required: true, min: 0.5}
+  - {name: rrp, type: double, required: true, min: 1.0}
+  - {name: discount, type: double, required: true, min: 0.0, max: 0.95}
+  - {name: unit_cost, type: double, required: true, min: 0.0}
+  - {name: units_bought, type: int, required: true, min: 1}
+  - {name: units_sold, type: int, required: true, min: 0}
+  - {name: units_returned, type: int, required: true, min: 0}
+  - {name: sold_out_day, type: int, required: true, min: -1, max: 13}
+rules:
+  - {name: sold_within_bought, expr: "units_sold <= units_bought"}
+  - {name: returned_within_sold, expr: "units_returned <= units_sold"}
+  - {name: price_not_above_rrp, expr: "price <= rrp"}
+references:
+  - {column: article_id, dataset: articles, key: article_id}
+  - {column: campaign_id, dataset: campaigns, key: campaign_id}

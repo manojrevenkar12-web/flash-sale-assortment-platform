@@ -1,0 +1,64 @@
+# Databricks Asset Bundle for the Spark steps. Airflow triggers these jobs by name
+# (DatabricksRunNowOperator, job_name=fsap-ingest / fsap-features).
+#   databricks bundle validate -t prod && databricks bundle deploy -t prod
+bundle:
+  name: flash-sale-assortment
+
+artifacts:
+  fsap_wheel:
+    type: whl
+    path: ../..
+    build: python -m pip wheel --no-deps -w dist ../..
+
+variables:
+  data_root:
+    description: Unity Catalog volume holding landing, bronze, silver, gold
+    default: /Volumes/lounge_assortment/pipeline/data
+
+resources:
+  jobs:
+    fsap-ingest:
+      name: fsap-ingest
+      max_concurrent_runs: 1
+      timeout_seconds: 2700
+      email_notifications: {on_failure: ["lounge-assortment-ml@example.com"]}
+      job_clusters:
+        - job_cluster_key: ingest
+          new_cluster:
+            spark_version: 16.4.x-scala2.13
+            node_type_id: m6i.xlarge
+            autoscale: {min_workers: 1, max_workers: 4}
+            data_security_mode: USER_ISOLATION
+            spark_env_vars: {FSAP_DATA_ROOT: "${var.data_root}"}
+      tasks:
+        - task_key: ingest
+          job_cluster_key: ingest
+          python_wheel_task: {package_name: fsap, entry_point: fsap, parameters: ["--data", "${var.data_root}", "ingest"]}
+          libraries: [{whl: ../../dist/*.whl}]
+    fsap-features:
+      name: fsap-features
+      max_concurrent_runs: 1
+      timeout_seconds: 2700
+      email_notifications: {on_failure: ["lounge-assortment-ml@example.com"]}
+      job_clusters:
+        - job_cluster_key: features
+          new_cluster:
+            spark_version: 16.4.x-scala2.13
+            node_type_id: m6i.2xlarge
+            autoscale: {min_workers: 2, max_workers: 8}
+            data_security_mode: USER_ISOLATION
+            spark_env_vars: {FSAP_DATA_ROOT: "${var.data_root}"}
+      tasks:
+        - task_key: features
+          job_cluster_key: features
+          python_wheel_task: {package_name: fsap, entry_point: fsap, parameters: ["--data", "${var.data_root}", "features"]}
+          libraries: [{whl: ../../dist/*.whl}]
+
+targets:
+  dev:
+    mode: development
+    default: true
+  prod:
+    mode: production
+    variables:
+      data_root: /Volumes/lounge_assortment/pipeline/data

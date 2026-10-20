@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: [../../base]
+images:
+  - name: ghcr.io/manojrevenkar12-web/flash-sale-assortment-platform
+    newTag: "1.0.0"
+patches:
+  - target: {kind: ServiceAccount, name: fsap-api}
+    patch: |-
+      - {op: replace, path: /metadata/annotations/eks.amazonaws.com~1role-arn, value: "arn:aws:iam::123456789012:role/fsap-prod-api"}
+  - target: {kind: ServiceAccount, name: fsap-batch}
+    patch: |-
+      - {op: replace, path: /metadata/annotations/eks.amazonaws.com~1role-arn, value: "arn:aws:iam::123456789012:role/fsap-prod-batch"}

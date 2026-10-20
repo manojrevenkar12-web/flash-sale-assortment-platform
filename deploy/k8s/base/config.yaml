@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fsap-config
+data:
+  FSAP_DATA_ROOT: /data
+  FSAP_MLFLOW_URI: databricks
+  FSAP_MLFLOW_REGISTRY_URI: databricks-uc
+  DBT_TARGET: prod

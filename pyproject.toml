@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fsap"
+version = "1.0.0"
+description = "Flash-sale assortment platform: data contracts, Spark/dbt pipelines, sell-through forecasting, assortment optimisation and GenAI curation, orchestrated by Airflow."
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+[project.scripts]
+fsap = "fsap.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+fsap = ["contracts/*.yaml", "genai/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["spark: needs a local Spark session (Java 17+)", "slow: end-to-end pipeline"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501", "B008"]  # frozen dataclass defaults are safe
