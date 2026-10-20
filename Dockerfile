@@ -4,7 +4,8 @@
 # local:   adds a JRE so docker compose can run the whole pipeline, Spark included, on one machine.
 FROM python:3.12-slim-bookworm AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 MLFLOW_DISABLE_AGENT_HINT=1
-RUN useradd --uid 10001 --create-home app
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 10001 --create-home app
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt

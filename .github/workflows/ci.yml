@@ -75,16 +75,17 @@ jobs:
           FSAP_PYTHON: /tmp/fsap/bin/python
           FSAP_DATA_ROOT: ${{ github.workspace }}/dag-data
         run: |
-          /tmp/fsap/bin/python -m fsap.cli --data "$FSAP_DATA_ROOT" simulate --days 500 --plan-weeks 2 > /dev/null
+          # the full two-year world: with less history the gate (rightly) rejects the first model
+          /tmp/fsap/bin/python -m fsap.cli --data "$FSAP_DATA_ROOT" simulate > /dev/null
           /tmp/af/bin/airflow db migrate > /dev/null
           /tmp/af/bin/airflow dags test flash_sale_assortment > dag.log 2>&1 || true
           grep -oE "new_state=[a-z_]+" dag.log | sort | uniq -c
-          test "$(grep -c 'new_state=success' dag.log)" -ge 8 || { tail -80 dag.log; echo "::error title=DAG run failed::$(grep -E 'Error|exit code' dag.log | tail -5 | tr '\n' ' ')"; exit 1; }
+          test "$(grep -c 'new_state=success' dag.log)" -ge 8 || { tail -80 dag.log; echo "::error title=DAG run failed::$(grep -E 'Error|exit code|unbiased|calibrated|bias' dag.log | tail -12 | tr '\n' ' ')"; exit 1; }
 
   deploy:
     name: images and infrastructure
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
@@ -108,7 +109,7 @@ jobs:
       - name: Smoke-test the image (whole pipeline on a small world, then the API)
         run: |
           docker volume create fsapdata
-          docker run --rm -v fsapdata:/data -e FSAP_SIM_DAYS=500 fsap:local bash scripts/run_pipeline.sh > pipeline.log 2>&1 || {
+          docker run --rm -v fsapdata:/data fsap:local bash scripts/run_pipeline.sh > pipeline.log 2>&1 || {
             tail -60 pipeline.log
             echo "::error title=pipeline in container failed::$(grep -E '^== |Error|error|denied|Traceback' pipeline.log | tail -25 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
             exit 1
