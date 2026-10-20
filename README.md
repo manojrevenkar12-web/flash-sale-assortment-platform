@@ -123,10 +123,10 @@ accounts, PrometheusRule), [Databricks bundle](deploy/databricks/bundle.yml),
   and Terraform are checked in CI (`terraform validate`, kubeconform, image builds and a container
   smoke test), not run against a real workspace or cluster. Locally Spark writes Parquet; on
   Databricks the same jobs would write Delta tables.
-- **Seasonality needs history.** With only one year of history the forecaster's bias swings from
-  fold to fold (−8% to +21% around the January sales) and the release gate rejects the first
-  model; with two years it passes. The gate doing its job is the point, but it also means a new
-  outlet market would start on the baseline.
+- **Seasonality needs history.** With only sixteen months of history the forecaster's bias swings
+  from fold to fold (between −8% and +22% around the January sales) and the pooled bias sits at the
+  gate's 8% limit, so the first model may be rejected; with two years it passes with margin. The
+  gate doing its job is the point, but a new market would start on the baseline.
 - Cannibalisation is handled by re-forecasting at the chosen number of articles until it settles;
   substitution between specific articles is not modelled.
 
